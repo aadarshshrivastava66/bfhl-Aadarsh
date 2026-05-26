@@ -5,7 +5,6 @@ const ticketSchema = new mongoose.Schema(
     subject: {
       type: String,
       required: true,
-      trim: true,
     },
 
     description: {
@@ -16,7 +15,6 @@ const ticketSchema = new mongoose.Schema(
     customerEmail: {
       type: String,
       required: true,
-      lowercase: true,
     },
 
     priority: {
@@ -27,7 +25,12 @@ const ticketSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["open", "in_progress", "resolved", "closed"],
+      enum: [
+        "open",
+        "in_progress",
+        "resolved",
+        "closed",
+      ],
       default: "open",
     },
 
@@ -41,4 +44,7 @@ const ticketSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Ticket", ticketSchema);
+module.exports = mongoose.model(
+  "Ticket",
+  ticketSchema
+);

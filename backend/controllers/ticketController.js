@@ -1,40 +1,40 @@
 const Ticket = require("../models/Ticket");
+
 const validator = require("validator");
 
 const {
-  getTicketWithDerivedFields,
+  getTicketWithFields,
 } = require("../utils/slaHelper");
 
-const statusFlow = [
+const flow = [
   "open",
   "in_progress",
   "resolved",
   "closed",
 ];
 
-const isValidTransition = (current, next) => {
-  const currentIndex = statusFlow.indexOf(current);
-  const nextIndex = statusFlow.indexOf(next);
+const validTransition = (
+  current,
+  next
+) => {
+  const c = flow.indexOf(current);
 
-  // forward only one step
-  if (nextIndex === currentIndex + 1) {
-    return true;
-  }
+  const n = flow.indexOf(next);
 
-  // backward only one step
-  if (nextIndex === currentIndex - 1) {
-    return true;
-  }
-
-  return false;
+  return (
+    n === c + 1 ||
+    n === c - 1
+  );
 };
 
 
 
 
-
-// CREATE TICKET
-const createTicket = async (req, res) => {
+// CREATE
+const createTicket = async (
+  req,
+  res
+) => {
   try {
     const {
       subject,
@@ -50,40 +50,33 @@ const createTicket = async (req, res) => {
       !priority
     ) {
       return res.status(400).json({
-        message: "All fields are required",
+        message:
+          "All fields required",
       });
     }
 
-    if (!validator.isEmail(customerEmail)) {
+    if (
+      !validator.isEmail(
+        customerEmail
+      )
+    ) {
       return res.status(400).json({
-        message: "Invalid email format",
+        message:
+          "Invalid email",
       });
     }
 
-    const validPriorities = [
-      "low",
-      "medium",
-      "high",
-      "urgent",
-    ];
-
-    if (!validPriorities.includes(priority)) {
-      return res.status(400).json({
-        message: "Invalid priority value",
+    const ticket =
+      await Ticket.create({
+        subject,
+        description,
+        customerEmail,
+        priority,
       });
-    }
 
-    const ticket = await Ticket.create({
-      subject,
-      description,
-      customerEmail,
-      priority,
-    });
-
-    const finalTicket =
-      getTicketWithDerivedFields(ticket);
-
-    res.status(201).json(finalTicket);
+    res.status(201).json(
+      getTicketWithFields(ticket)
+    );
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -94,13 +87,17 @@ const createTicket = async (req, res) => {
 
 
 
-
-
-// GET ALL TICKETS
-const getTickets = async (req, res) => {
+// GET
+const getTickets = async (
+  req,
+  res
+) => {
   try {
-    const { status, priority, breached } =
-      req.query;
+    const {
+      status,
+      priority,
+      breached,
+    } = req.query;
 
     let filter = {};
 
@@ -112,21 +109,22 @@ const getTickets = async (req, res) => {
       filter.priority = priority;
     }
 
-    let tickets = await Ticket.find(filter).sort({
-      createdAt: -1,
-    });
+    let tickets =
+      await Ticket.find(filter).sort({
+        createdAt: -1,
+      });
 
-    tickets = tickets.map((ticket) =>
-      getTicketWithDerivedFields(ticket)
+    tickets = tickets.map((t) =>
+      getTicketWithFields(t)
     );
 
     if (breached === "true") {
       tickets = tickets.filter(
-        (ticket) => ticket.slaBreached === true
+        (t) => t.slaBreached
       );
     }
 
-    res.status(200).json(tickets);
+    res.json(tickets);
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -137,59 +135,50 @@ const getTickets = async (req, res) => {
 
 
 
-
-
-// UPDATE TICKET STATUS
-const updateTicket = async (req, res) => {
+// UPDATE
+const updateTicket = async (
+  req,
+  res
+) => {
   try {
     const { status } = req.body;
 
-    if (!status) {
-      return res.status(400).json({
-        message: "Status is required",
-      });
-    }
-
-    const ticket = await Ticket.findById(
-      req.params.id
-    );
+    const ticket =
+      await Ticket.findById(
+        req.params.id
+      );
 
     if (!ticket) {
       return res.status(404).json({
-        message: "Ticket not found",
+        message:
+          "Ticket not found",
       });
     }
 
     if (
-      ![
-        "open",
-        "in_progress",
-        "resolved",
-        "closed",
-      ].includes(status)
+      !validTransition(
+        ticket.status,
+        status
+      )
     ) {
       return res.status(400).json({
-        message: "Invalid status value",
+        message:
+          "Invalid transition",
       });
     }
 
-    if (!isValidTransition(ticket.status, status)) {
-      return res.status(400).json({
-        message:
-          "Invalid status transition",
-      });
-    }
+    const previous =
+      ticket.status;
 
     ticket.status = status;
 
-    // SET resolvedAt
     if (status === "resolved") {
-      ticket.resolvedAt = new Date();
+      ticket.resolvedAt =
+        new Date();
     }
 
-    // CLEAR resolvedAt if moved back
     if (
-      ticket.status === "in_progress" &&
+      previous === "resolved" &&
       status === "in_progress"
     ) {
       ticket.resolvedAt = null;
@@ -197,10 +186,9 @@ const updateTicket = async (req, res) => {
 
     await ticket.save();
 
-    const updatedTicket =
-      getTicketWithDerivedFields(ticket);
-
-    res.status(200).json(updatedTicket);
+    res.json(
+      getTicketWithFields(ticket)
+    );
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -211,25 +199,19 @@ const updateTicket = async (req, res) => {
 
 
 
-
-
-// DELETE TICKET
-const deleteTicket = async (req, res) => {
+// DELETE
+const deleteTicket = async (
+  req,
+  res
+) => {
   try {
-    const ticket = await Ticket.findById(
+    await Ticket.findByIdAndDelete(
       req.params.id
     );
 
-    if (!ticket) {
-      return res.status(404).json({
-        message: "Ticket not found",
-      });
-    }
-
-    await ticket.deleteOne();
-
-    res.status(200).json({
-      message: "Ticket deleted successfully",
+    res.json({
+      message:
+        "Deleted successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -241,45 +223,42 @@ const deleteTicket = async (req, res) => {
 
 
 
-
-
-
-// GET STATS
-const getStats = async (req, res) => {
+// STATS
+const getStats = async (
+  req,
+  res
+) => {
   try {
-    const tickets = await Ticket.find();
+    const tickets =
+      await Ticket.find();
 
     const stats = {
       open: 0,
       in_progress: 0,
       resolved: 0,
       closed: 0,
-
-      low: 0,
-      medium: 0,
-      high: 0,
-      urgent: 0,
-
-      breachedOpenTickets: 0,
+      breached: 0,
     };
 
     tickets.forEach((ticket) => {
       stats[ticket.status]++;
-      stats[ticket.priority]++;
 
-      const ticketWithFields =
-        getTicketWithDerivedFields(ticket);
+      const t =
+        getTicketWithFields(
+          ticket
+        );
 
       if (
-        ticketWithFields.slaBreached &&
-        ticket.status !== "resolved" &&
+        t.slaBreached &&
+        ticket.status !==
+          "resolved" &&
         ticket.status !== "closed"
       ) {
-        stats.breachedOpenTickets++;
+        stats.breached++;
       }
     });
 
-    res.status(200).json(stats);
+    res.json(stats);
   } catch (error) {
     res.status(500).json({
       message: error.message,

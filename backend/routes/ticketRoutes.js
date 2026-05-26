@@ -8,16 +8,32 @@ const {
   getStats,
 } = require("../controllers/ticketController");
 
-const router = express.Router();
+const router =
+  express.Router();
 
-router.post("/tickets", createTicket);
+router.post(
+  "/tickets",
+  createTicket
+);
 
-router.get("/tickets", getTickets);
+router.get(
+  "/tickets/stats",
+  getStats
+);
 
-router.patch("/tickets/:id", updateTicket);
+router.get(
+  "/tickets",
+  getTickets
+);
 
-router.delete("/tickets/:id", deleteTicket);
+router.patch(
+  "/tickets/:id",
+  updateTicket
+);
 
-router.get("/tickets/stats", getStats);
+router.delete(
+  "/tickets/:id",
+  deleteTicket
+);
 
 module.exports = router;

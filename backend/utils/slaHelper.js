@@ -5,30 +5,31 @@ const slaTargets = {
   low: 4320,
 };
 
-const getTicketWithDerivedFields = (ticket) => {
-  const ticketObj = ticket.toObject();
+const getTicketWithFields = (ticket) => {
+  const obj = ticket.toObject();
 
   const endTime =
-    ticket.status === "resolved" || ticket.status === "closed"
+    ticket.status === "resolved" ||
+    ticket.status === "closed"
       ? ticket.resolvedAt || new Date()
       : new Date();
 
   const ageMinutes = Math.floor(
-    (endTime - ticket.createdAt) / (1000 * 60)
+    (endTime - ticket.createdAt) /
+      (1000 * 60)
   );
 
-  const slaLimit = slaTargets[ticket.priority];
-
-  const slaBreached = ageMinutes > slaLimit;
+  const slaBreached =
+    ageMinutes >
+    slaTargets[ticket.priority];
 
   return {
-    ...ticketObj,
+    ...obj,
     ageMinutes,
     slaBreached,
   };
 };
 
 module.exports = {
-  getTicketWithDerivedFields,
-  slaTargets,
+  getTicketWithFields,
 };
